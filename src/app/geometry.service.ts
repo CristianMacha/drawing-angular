@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { DrawingState } from './drawing-state.service';
+import { Shape } from './drawing-state.service';
 
 @Injectable({
   providedIn: 'root'
@@ -7,8 +7,8 @@ import { DrawingState } from './drawing-state.service';
 export class GeometryService {
   constructor() { }
 
-  public generatePathData(state: DrawingState): string {
-    const { vertices, cornerRadii, segmentDepths } = state;
+  public generatePathData(shape: Shape): string {
+    const { vertices, cornerRadii, segmentDepths } = shape;
     if (!vertices || vertices.length < 2) return '';
 
     const numVertices = vertices.length;
