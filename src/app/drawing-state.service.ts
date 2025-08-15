@@ -8,16 +8,10 @@ export interface DrawingState {
 }
 
 const initialState: DrawingState = {
-  vertices: [
-    { x: 200, y: 400 }, { x: 200, y: 100 }, { x: 900, y: 100 },
-    { x: 900, y: 400 }, { x: 700, y: 400 }, { x: 700, y: 250 },
-    { x: 350, y: 250 }, { x: 350, y: 400 },
-  ],
+  vertices: [],
   cornerRadii: [],
   segmentDepths: [],
 };
-initialState.cornerRadii = Array(initialState.vertices.length).fill(0);
-initialState.segmentDepths = Array(initialState.vertices.length).fill(0);
 
 
 @Injectable({
@@ -91,5 +85,14 @@ export class DrawingStateService {
       }));
     }
     this.setState({ vertices: newVertices });
+  }
+
+  setNewShape(vertices: { x: number; y: number }[]): void {
+    const newState: DrawingState = {
+      vertices,
+      cornerRadii: Array(vertices.length).fill(0),
+      segmentDepths: Array(vertices.length).fill(0),
+    };
+    this._state.next(newState);
   }
 }

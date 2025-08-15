@@ -16,36 +16,50 @@ export class KonvaRendererService {
 
   public initialize(layer: Konva.Layer): void {
     this.layer = layer;
-    const state = this.stateSvc.getState();
-
-    // Create objects once
+    // Create objects that are always there
     this.layer.add(new Konva.Path({
       stroke: '#D6D3D1', strokeWidth: 2, closed: true,
       fill: 'rgba(173, 216, 230, 0.5)', name: 'shape',
     }));
-
-    state.vertices.forEach((_, i) => {
-      this.layer?.add(new Konva.Circle({
-        radius: 8, fill: '#0EA5E9', stroke: '#0284C7',
-        strokeWidth: 2, draggable: true, name: 'vertex-handle', id: `vertex-${i}`
-      }));
-      this.layer?.add(new Konva.Circle({
-        radius: 6, fill: '#A3E635', draggable: true,
-        name: 'midpoint-handle', id: `midpoint-${i}`
-      }));
-      this.layer?.add(new Konva.Text({
-        fontSize: 14, fill: '#1F2937', name: 'segment-label',
-        id: `segment-label-${i}`
-      }));
-      this.layer?.add(new Konva.Text({
-        fontSize: 14, fill: '#8B5CF6', name: 'angle-label',
-        id: `angle-label-${i}`
-      }));
-    });
   }
 
   public render(state: DrawingState): void {
     if (!this.layer) return;
+
+    const numVertices = state.vertices.length;
+    const vertexHandles = this.layer.find<Konva.Circle>('.vertex-handle');
+
+    // Sync number of handles
+    const diff = numVertices - vertexHandles.length;
+    if (diff > 0) { // Add new handles
+      for (let i = 0; i < diff; i++) {
+        const index = vertexHandles.length + i;
+        this.layer.add(new Konva.Circle({
+          radius: 8, fill: '#0EA5E9', stroke: '#0284C7',
+          strokeWidth: 2, draggable: true, name: 'vertex-handle', id: `vertex-${index}`
+        }));
+        this.layer.add(new Konva.Circle({
+          radius: 6, fill: '#A3E635', draggable: true,
+          name: 'midpoint-handle', id: `midpoint-${index}`
+        }));
+        this.layer.add(new Konva.Text({
+          fontSize: 14, fill: '#1F2937', name: 'segment-label',
+          id: `segment-label-${index}`
+        }));
+        this.layer.add(new Konva.Text({
+          fontSize: 14, fill: '#8B5CF6', name: 'angle-label',
+          id: `angle-label-${index}`
+        }));
+      }
+    } else if (diff < 0) { // Remove excess handles
+      for (let i = 0; i < -diff; i++) {
+        const index = vertexHandles.length - 1 - i;
+        this.layer.findOne(`#vertex-${index}`)?.destroy();
+        this.layer.findOne(`#midpoint-${index}`)?.destroy();
+        this.layer.findOne(`#segment-label-${index}`)?.destroy();
+        this.layer.findOne(`#angle-label-${index}`)?.destroy();
+      }
+    }
 
     this.updatePath(state);
     this.updateVertexHandles(state);
@@ -128,8 +142,8 @@ export class KonvaRendererService {
       if (l_a === 0 || l_b === 0) { label.hide(); return; }
       const dotProduct = v_a.x * v_b.x + v_a.y * v_b.y;
       const angleRad = Math.acos(dotProduct / (l_a * l_b));
-      const angleDeg = Math.round(angleRad * (180 / Math.PI));
-      label.text(`${angleDeg}°`);
+      const angleDeg = angleRad * (180 / Math.PI);
+      label.text(`${angleDeg.toFixed(1)}°`);
       const norm_a = { x: v_a.x / l_a, y: v_a.y / l_a };
       const norm_b = { x: v_b.x / l_b, y: v_b.y / l_b };
       const bisector = { x: norm_a.x + norm_b.x, y: norm_a.y + norm_b.y };

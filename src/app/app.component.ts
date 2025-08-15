@@ -45,6 +45,7 @@ export class AppComponent implements AfterViewInit, OnDestroy {
     // 3. Subscribe to state changes to trigger re-renders
     this.stateSubscription = this.stateSvc.state$.subscribe(state => {
       this.rendererSvc.render(state);
+      this.interactionSvc.updateHandlers();
     });
   }
 
