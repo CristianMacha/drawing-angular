@@ -53,6 +53,7 @@ export class InteractionService implements OnDestroy {
     this.attachVertexHandlers();
     this.attachMidpointHandlers();
     this.attachLabelHandlers();
+    this.attachAngleLabelHandlers();
   }
 
   private handleKeyDown(e: KeyboardEvent): void {
@@ -743,5 +744,120 @@ export class InteractionService implements OnDestroy {
         }
       });
     });
+  }
+
+  private attachAngleLabelHandlers(): void {
+    const layer = this.layer;
+    if (!layer) return;
+
+    layer.find('.angle-label').forEach((label) => {
+      label.off('click tap');
+      
+      const shapeId = label.getAttr('shapeId');
+      const vertexIndex = label.getAttr('vertexIndex');
+      
+      label.on('click tap', () => {
+        this.stateSvc.selectShape(shapeId);
+        
+        const state = this.stateSvc.getState();
+        const selectedShape = state.shapes.find(s => s.id === state.selectedShapeId);
+        if (!selectedShape) return;
+        
+        // Calculate current angle
+        const numVertices = selectedShape.vertices.length;
+        const p_curr = selectedShape.vertices[vertexIndex];
+        const p_prev = selectedShape.vertices[(vertexIndex - 1 + numVertices) % numVertices];
+        const p_next = selectedShape.vertices[(vertexIndex + 1) % numVertices];
+        
+        const v_a = { x: p_prev.x - p_curr.x, y: p_prev.y - p_curr.y };
+        const v_b = { x: p_next.x - p_curr.x, y: p_next.y - p_curr.y };
+        const l_a = Math.hypot(v_a.x, v_a.y);
+        const l_b = Math.hypot(v_b.x, v_b.y);
+        
+        if (l_a === 0 || l_b === 0) return;
+        
+        const dotProduct = v_a.x * v_b.x + v_a.y * v_b.y;
+        const cosValue = Math.max(-1, Math.min(1, dotProduct / (l_a * l_b)));
+        const currentAngle = Math.acos(cosValue) * (180 / Math.PI);
+        
+        const newAngleStr = prompt(
+          'Ingresa el nuevo ángulo (grados):',
+          currentAngle.toFixed(1)
+        );
+        
+        if (newAngleStr) {
+          const newAngle = parseFloat(newAngleStr);
+          if (!isNaN(newAngle) && newAngle > 0 && newAngle < 180) {
+            // Limite el cambio máximo para evitar deformaciones drásticas
+            const maxChange = 10; // Máximo 10 grados por vez
+            const angleDiff = newAngle - currentAngle;
+            const clampedAngle = currentAngle + Math.max(-maxChange, Math.min(maxChange, angleDiff));
+            this.adjustAngleGradually(selectedShape, vertexIndex, clampedAngle);
+          }
+        }
+      });
+    });
+  }
+
+  private adjustAngleGradually(shape: any, vertexIndex: number, targetAngleDeg: number): void {
+    const numVertices = shape.vertices.length;
+    const p_curr = shape.vertices[vertexIndex];
+    const p_prev = shape.vertices[(vertexIndex - 1 + numVertices) % numVertices];
+    const p_next = shape.vertices[(vertexIndex + 1) % numVertices];
+    
+    // Calculate vectors from current vertex
+    const v_a = { x: p_prev.x - p_curr.x, y: p_prev.y - p_curr.y };
+    const v_b = { x: p_next.x - p_curr.x, y: p_next.y - p_curr.y };
+    const l_a = Math.hypot(v_a.x, v_a.y);
+    const l_b = Math.hypot(v_b.x, v_b.y);
+    
+    if (l_a === 0 || l_b === 0) return;
+    
+    // Calculate current angle
+    const dotProduct = v_a.x * v_b.x + v_a.y * v_b.y;
+    const cosValue = Math.max(-1, Math.min(1, dotProduct / (l_a * l_b)));
+    const currentAngleDeg = Math.acos(cosValue) * (180 / Math.PI);
+    
+    // Calculate small adjustment
+    const angleDiff = targetAngleDeg - currentAngleDeg;
+    const adjustmentRad = (angleDiff * (Math.PI / 180)) * 0.2; // Solo 20% del cambio para ser muy suave
+    
+    // Apply small rotation to each adjacent vertex
+    const cos_adj = Math.cos(adjustmentRad / 2);
+    const sin_adj = Math.sin(adjustmentRad / 2);
+    
+    // Normalize vectors
+    const norm_a = { x: v_a.x / l_a, y: v_a.y / l_a };
+    const norm_b = { x: v_b.x / l_b, y: v_b.y / l_b };
+    
+    // Apply small rotations in opposite directions
+    const new_norm_a = {
+      x: norm_a.x * cos_adj + norm_a.y * sin_adj,
+      y: -norm_a.x * sin_adj + norm_a.y * cos_adj
+    };
+    const new_norm_b = {
+      x: norm_b.x * cos_adj - norm_b.y * sin_adj,
+      y: norm_b.x * sin_adj + norm_b.y * cos_adj
+    };
+    
+    // Update vertices with preserved lengths
+    const newVertices = [...shape.vertices];
+    newVertices[(vertexIndex - 1 + numVertices) % numVertices] = {
+      x: p_curr.x + new_norm_a.x * l_a,
+      y: p_curr.y + new_norm_a.y * l_a
+    };
+    newVertices[(vertexIndex + 1) % numVertices] = {
+      x: p_curr.x + new_norm_b.x * l_b,
+      y: p_curr.y + new_norm_b.y * l_b
+    };
+    
+    // Update the shape
+    const state = this.stateSvc.getState();
+    const newShapes = state.shapes.map(s => 
+      s.id === shape.id 
+        ? { ...s, vertices: newVertices }
+        : s
+    );
+    this.stateSvc.setState({ shapes: newShapes });
   }
 }

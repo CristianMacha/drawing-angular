@@ -33,7 +33,7 @@ export class DrawingStateService {
     return this._state.getValue();
   }
 
-  private setState(state: Partial<DrawingState>): void {
+  setState(state: Partial<DrawingState>): void {
     this._state.next({ ...this.getState(), ...state });
   }
 
